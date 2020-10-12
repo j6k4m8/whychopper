@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>whychopper</title>
+    </head>
+    <body>
+        <div class="container">
+            <div id="app"></div>
+            <div class="container">
+                <div class="row">
+                    <div class="col">
+                        <a
+                            class="btn btn-primary"
+                            href="mailto:whychopper@matelsky.com"
+                            >✉️ Feedback & Help</a
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <link
+            rel="stylesheet"
+            href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css"
+            integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu"
+            crossorigin="anonymous"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <script>
+            // const API_URL = "http://localhost:5000";
+            const API_URL = "";
+
+            const AircraftTableRow = {
+                props: {
+                    aircraft: {
+                        type: Object,
+                    },
+                },
+                template: `
+                <tr>
+                    <td>{{aircraft.callsign}}</td>
+                    <td>{{aircraft.origin_country}}</td>
+                    <td>{{aircraft.geo_altitude}}</td>
+                    <td>{{aircraft.Airline||aircraft.Affiliation}}</td>
+                    <td>{{aircraft.Comments}}</td>
+                </tr>
+                `,
+            };
+
+            const AircraftSummary = {
+                props: {
+                    aircraft: {
+                        type: Array,
+                    },
+                },
+                components: { AircraftTableRow },
+                computed: {
+                    highLevel() {
+                        if (this.aircraft.length == 0) {
+                            return "If you are sure there's a helicopter outside, it's either not reporting itself to air-traffic control, or it's outside of our range.";
+                        }
+                        if (this.aircraft.filter((a) => !a.Airline).length) {
+                            return "Some aircraft on this list did not self-report affiliation.";
+                        }
+                        let interesting = this.aircraft.filter((a) => {
+                            return !a.Airline;
+                        });
+                        if (interesting.length == 1) {
+                            return `${interesting[0].callsign} looks interesting to me.`;
+                        }
+                        return "This list seems mostly harmless.";
+                    },
+                },
+                template: `
+                <div>
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                <th>Callsign</th>
+                                <th>Country of Origin</th>
+                                <th>Altitude</th>
+                                <th>Affiliation*</th>
+                                <th>Comments</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <AircraftTableRow v-for='a in aircraft' :aircraft=a v-bind:key='a.icao24' />
+                        </tbody>
+                    </table>
+                    <h3>
+                        {{highLevel}}
+                    </h3>
+                    <small>Affiliation is determined through <a href="https://en.wikipedia.org/wiki/List_of_airline_codes">ICAO</a> prefix.</small>
+                    <small>Data are aggregated from <a href="https://openstreetmap.org/">OpenStreetMap</a>, <a href="https://opensky-network.org/">the OpenSky Network</a>, and <a href="https://en.wikipedia.org/wiki/List_of_airline_codes">Wikipedia</a>.</small>
+                </div>
+                `,
+            };
+
+            const App = {
+                data() {
+                    return {
+                        status: "Looking for choppers...",
+                        aircraft: [],
+                        substatus: "",
+                    };
+                },
+                components: { AircraftSummary },
+                created() {
+                    // start searching for choppers:
+                    navigator.geolocation.watchPosition(
+                        (geolocationPosition) => {
+                            // geolocationPosition
+                            fetch(
+                                `${API_URL}/near/${geolocationPosition.coords.latitude}/${geolocationPosition.coords.longitude}`
+                            ).then((res) => {
+                                res.json().then((results) => {
+                                    aircraft = JSON.parse(results.aircraft);
+                                    this.aircraft = Object.values(aircraft);
+                                    this.status = `Found ${
+                                        Object.keys(aircraft).length
+                                    } nearby aircraft`;
+                                    this.substatus = `...and ${results.total_count} higher altitude craft.`;
+                                });
+                            });
+                        },
+                        (err) => {
+                            console.error(err);
+                        }
+                    );
+                },
+                template: `<div>
+
+                    <div class="jumbotron">
+                        <h1><center>🚁 {{status}}</center></h1>
+                        <h5><center>{{substatus}} 🛩</center></h5>
+                        <div v-if="aircraft">
+                            <AircraftSummary :aircraft=aircraft />
+                        </div>
+                    </div>
+
+                </div>`,
+            };
+
+            new Vue({
+                render: (h) => h(App),
+            }).$mount(`#app`);
+        </script>
+    </body>
+</html>
