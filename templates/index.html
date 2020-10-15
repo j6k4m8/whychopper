@@ -29,8 +29,18 @@
         />
         <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
         <script>
-            // const API_URL = "http://localhost:5000";
-            const API_URL = "";
+            function isLawEnforcementOwner(aircraft) {
+                if (!aircraft.owner) {
+                    return false;
+                }
+                return (
+                    aircraft.owner.toLowerCase().indexOf("mayor") > -1 ||
+                    aircraft.owner.toLowerCase().indexOf("police") > -1
+                );
+            }
+
+            const API_URL = "http://localhost:5000";
+            // const API_URL = "";
 
             const AircraftTableRow = {
                 props: {
@@ -40,11 +50,13 @@
                 },
                 template: `
                 <tr>
+                    <td><a :href="'https://opensky-network.org/aircraft-profile?icao24='+aircraft.icao24">{{aircraft.icao24}}</a></td>
                     <td>{{aircraft.callsign}}</td>
                     <td>{{aircraft.origin_country}}</td>
                     <td>{{aircraft.geo_altitude}}</td>
+                    <td>{{aircraft.owner}}</td>
                     <td>{{aircraft.Airline||aircraft.Affiliation}}</td>
-                    <td>{{aircraft.Comments}}</td>
+                    <td>{{aircraft.Comments? aircraft.Comments + "; " : ''}} {{aircraft.manufacturerName}} {{aircraft.model}}</td>
                 </tr>
                 `,
             };
@@ -61,7 +73,16 @@
                         if (this.aircraft.length == 0) {
                             return "If you are sure there's a helicopter outside, it's either not reporting itself to air-traffic control, or it's outside of our range.";
                         }
-                        if (this.aircraft.filter((a) => !a.Airline).length) {
+                        lawEnforcementEntries = this.aircraft.filter((a) =>
+                            isLawEnforcementOwner(a)
+                        );
+                        if (lawEnforcementEntries.length) {
+                            return `Callsign ${lawEnforcementEntries[0].callsign} is a law-enforcement aircraft.`;
+                        }
+                        if (
+                            this.aircraft.filter((a) => !a.Airline && !a.Owner)
+                                .length
+                        ) {
                             return "Some aircraft on this list did not self-report affiliation.";
                         }
                         let interesting = this.aircraft.filter((a) => {
@@ -78,9 +99,11 @@
                     <table class="table table-bordered table-striped">
                         <thead>
                             <tr>
+                                <th>ICAO24</th>
                                 <th>Callsign</th>
                                 <th>Country of Origin</th>
                                 <th>Altitude</th>
+                                <th>Owner</th>
                                 <th>Affiliation*</th>
                                 <th>Comments</th>
                             </tr>

@@ -92,6 +92,10 @@ def get_aircraft_around(lat, lng):
     return df
 
 
+def get_info_for_icao(icao):
+    return requests.get(f"https://opensky-network.org/api/metadata/aircraft/icao/{icao}").json()
+
+
 @APP.route("/near/<lat>/<lng>")
 def get_near_lat_lng(lat, lng):
     lat = float(lat)
@@ -100,6 +104,7 @@ def get_near_lat_lng(lat, lng):
     total_count = len(candidates)
     candidates = candidates[(candidates.geo_altitude < ALTITUDE_OF_INTEREST) & (~candidates.on_ground)]
 
+    # enrich with wikipedia affiliations:
     newdf = pd.DataFrame([
         i.iloc[0] if len(i) else {}
         for i in candidates.callsign.str.slice(0, 3).map(
@@ -110,6 +115,20 @@ def get_near_lat_lng(lat, lng):
         candidates.reset_index(drop=True),
         newdf.reset_index(drop=True)
     ], axis='columns')
+
+
+    # enrich with opensky info:
+    candidates['owner'] = [None] * len(candidates.index)
+    candidates['manufacturerName'] = [None] * len(candidates.index)
+    candidates['model'] = [None] * len(candidates.index)
+    for i, c in candidates.iterrows():
+        try:
+            info = get_info_for_icao(c.icao24)
+            candidates._set_value(i, "owner", info['owner'])
+            candidates._set_value(i, "manufacturerName", info['manufacturerName'])
+            candidates._set_value(i, "model", info['model'])
+        except Exception as e:
+            print(e)
 
     return jsonify({
         "aircraft": candidates.T.to_json(),
