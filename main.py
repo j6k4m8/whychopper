@@ -3,6 +3,7 @@ from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 
 from collections import namedtuple
+import pgeocode
 import pandas as pd
 import requests
 
@@ -134,6 +135,15 @@ def get_near_lat_lng(lat, lng):
         "aircraft": candidates.T.to_json(),
         "total_count": total_count
     })
+
+@APP.route("/nearzip/<zipcode>")
+def get_near_zip(zipcode):
+    nomi = pgeocode.Nominatim("us")
+    info = nomi.query_postal_code(zipcode)
+    lat = info.latitude
+    lng = info.longitude
+    return get_near_lat_lng(lat, lng)
+
 
 @APP.route("/")
 def home():
