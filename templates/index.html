@@ -132,6 +132,7 @@
                         status: "Looking for choppers...",
                         aircraft: [],
                         substatus: "",
+                        zip: "",
                     };
                 },
                 components: { AircraftSummary },
@@ -154,15 +155,35 @@
                             });
                         },
                         (err) => {
+                            this.zip ? this.updateFromZip() : null;
                             console.error(err);
                         }
                     );
+                },
+                methods: {
+                    updateFromZip() {
+                        if (this.zip.length == 5) {
+                            fetch(`${API_URL}/nearzip/${this.zip}`).then(
+                                (res) => {
+                                    res.json().then((results) => {
+                                        aircraft = JSON.parse(results.aircraft);
+                                        this.aircraft = Object.values(aircraft);
+                                        this.status = `Found ${
+                                            Object.keys(aircraft).length
+                                        } nearby aircraft`;
+                                        this.substatus = `...and ${results.total_count} higher altitude craft.`;
+                                    });
+                                }
+                            );
+                        }
+                    },
                 },
                 template: `<div>
 
                     <div class="jumbotron">
                         <h1><center>🚁 {{status}}</center></h1>
-                        <h5><center>{{substatus}} 🛩</center></h5>
+                        <h5><center>{{substatus}} 🛩 </center></h5>
+                        <h6><center><input type="text" v-on:keyup="updateFromZip" v-model="zip" placeholder="Or use a Zipcode" /></center></h6>
                         <div v-if="aircraft">
                             <AircraftSummary :aircraft=aircraft />
                         </div>
